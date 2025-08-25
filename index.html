@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מנהל הזמנות ספקים</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            direction: rtl;
+            text-align: right;
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            display: flex;
+            gap: 2rem;
+        }
+        .left-pane {
+            flex-grow: 1;
+            padding: 2rem;
+            background-color: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .right-pane {
+            width: 350px;
+            padding: 2rem;
+            background-color: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+        .order-list {
+            list-style: none;
+            padding: 0;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .order-item {
+            cursor: pointer;
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.2s;
+        }
+        .order-item:hover, .order-item.active {
+            background-color: #f3f4f6;
+        }
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            color: #fff;
+            transition: background-color 0.2s;
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .table-header {
+            background-color: #e5e7eb;
+        }
+        .order-form-container {
+            border: 2px dashed #9ca3af;
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+        .message-box {
+            position: fixed;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4f46e5;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            animation: fadeInOut 3s forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @media print {
+            body {
+                background-color: #fff;
+            }
+            .container, .right-pane, .left-pane, .no-print {
+                box-shadow: none;
+                margin: 0;
+                padding: 0;
+            }
+            .left-pane, .no-print, h1, h2 {
+                display: none !important;
+            }
+            .order-form-container {
+                border: none;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+
+<div id="messageBox" class="hidden message-box"></div>
+
+<div class="container">
+    <!-- Left Pane: Order List and Input -->
+    <div class="left-pane">
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">מנהל הזמנות ספקים</h1>
+        <div class="no-print space-y-6">
+            <!-- Order Number Input -->
+            <div>
+                <label for="orderNumberInput" class="block text-sm font-medium text-gray-700">הזן מספר הזמנה:</label>
+                <input type="text" id="orderNumberInput" class="form-input mt-1 block w-full" placeholder="לדוגמה: 1001">
+            </div>
+    
+            <!-- Load Button -->
+            <div class="flex justify-center">
+                <button id="loadOrdersBtn" class="btn btn-primary w-full sm:w-auto">טען הזמנה</button>
+            </div>
+        </div>
+        
+        <!-- Order List -->
+        <div class="mt-8">
+            <h3 class="text-xl font-semibold mb-4 text-gray-800">הזמנה שנטענה</h3>
+            <ul id="orderList" class="order-list">
+                <!-- The single order will be populated here -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Right Pane: Order Details Form -->
+    <div id="orderFormContainer" class="right-pane hidden">
+        <h2 class="text-2xl font-semibold text-center mb-4 text-gray-800">פרטי הזמנה</h2>
+
+        <!-- Order Form -->
+        <div id="orderForm" class="order-form-container">
+            <!-- Customer Details -->
+            <div class="mb-6">
+                <h3 class="text-xl font-medium text-gray-700 mb-2">פרטי לקוח</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">שם:</p>
+                        <p id="customerName" class="text-gray-800 font-bold"></p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">כתובת:</p>
+                        <p id="customerAddress" class="text-gray-800"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Table -->
+            <div class="mb-6">
+                <h3 class="text-xl font-medium text-gray-700 mb-2">פריטים שהוזמנו</h3>
+                <div class="overflow-x-auto rounded-lg">
+                    <table class="min-w-full bg-white rounded-lg">
+                        <thead>
+                            <tr class="table-header">
+                                <th class="py-3 px-4 text-sm font-medium text-gray-800 text-right">פריט</th>
+                                <th class="py-3 px-4 text-sm font-medium text-gray-800 text-center">כמות</th>
+                                <th class="py-3 px-4 text-sm font-medium text-gray-800 text-center">מחיר (₪)</th>
+                                <th class="py-3 px-4 text-sm font-medium text-gray-800 text-center">מחיר עלות</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <!-- Product rows will be populated here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="mb-6">
+                <h3 class="text-xl font-medium text-gray-700 mb-2">הערות</h3>
+                <div>
+                    <p class="text-sm font-medium text-gray-600">הערות מהאתר:</p>
+                    <p id="supplierComments" class="text-gray-800 italic"></p>
+                </div>
+                <div class="mt-4">
+                    <p class="text-sm font-medium text-gray-600">הוסף הערות משלך:</p>
+                    <textarea id="myComments" rows="4" class="form-textarea mt-1 block w-full"></textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="no-print flex justify-center space-x-4 mt-6">
+            <button id="printBtn" class="btn btn-primary">הדפס/שמור כ-PDF</button>
+            <button id="clearBtn" class="btn bg-red-500 hover:bg-red-600">נקה הכל</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const loadOrdersBtn = document.getElementById('loadOrdersBtn');
+    const orderNumberInput = document.getElementById('orderNumberInput');
+    const orderListEl = document.getElementById('orderList');
+    const orderFormContainer = document.getElementById('orderFormContainer');
+    const customerNameEl = document.getElementById('customerName');
+    const customerAddressEl = document.getElementById('customerAddress');
+    const productsTableBody = document.getElementById('productsTableBody');
+    const supplierCommentsEl = document.getElementById('supplierComments');
+    const myCommentsInput = document.getElementById('myComments');
+    const printBtn = document.getElementById('printBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const messageBox = document.getElementById('messageBox');
+
+    let allOrders = []; // This will now hold just the single fetched order.
+    let savedData = JSON.parse(localStorage.getItem('savedOrderData')) || {};
+
+    const showMessage = (message, duration = 3000) => {
+        messageBox.textContent = message;
+        messageBox.classList.remove('hidden');
+        setTimeout(() => {
+            messageBox.classList.add('hidden');
+        }, duration);
+    };
+
+    const fetchOrderByNumberFromAPI = async (orderNumber) => {
+        // This is a dummy function. In a real-world scenario, you would construct a real fetch call
+        // to your API endpoint, like `https://your-api.com/orders/${orderNumber}`.
+        const sampleOrders = [
+            {
+                "Order": [{ "OrderNumber": 1001, "GUID": "4dc614fe-1798-4321-bb90-d91af5b39892" }],
+                "BillingAddress": [{ "CustomerNumber": 383754, "BillingFirstName": "אבי", "BillingLastName": "כהן", "BillingStreet": "רחוב העצמאות", "BillingStreetNumber": "12", "BillingCity": "תל אביב" }],
+                "Products": [{ "SKU": "demoitem1", "Name": "מוצר לדוגמא 1", "Price": 90, "Quantity": 1 }, { "SKU": "demoitem2", "Name": "מוצר לדוגמא 2", "Price": 90, "Quantity": 1 }],
+                "Comments": [{ "SuppliersComments": "הערות מיוחדות לספק זה", "CustomerMessage": "בבקשה ליצור קשר לפני משלוח" }]
+            },
+            {
+                "Order": [{ "OrderNumber": 1002, "GUID": "5f6e7d9b-1c3a-4e2f-b8c9-d0a1e2f3g4h5" }],
+                "BillingAddress": [{ "CustomerNumber": 123456, "BillingFirstName": "נועה", "BillingLastName": "לוי", "BillingStreet": "רחוב המייסדים", "BillingStreetNumber": "25", "BillingCity": "חיפה" }],
+                "Products": [{ "SKU": "itemA", "Name": "מוצר A", "Price": 150, "Quantity": 2 }, { "SKU": "itemB", "Name": "מוצר B", "Price": 200, "Quantity": 1 }],
+                "Comments": [{ "SuppliersComments": "אין הערות מיוחדות", "CustomerMessage": "" }]
+            },
+            {
+                "Order": [{ "OrderNumber": 1003, "GUID": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d" }],
+                "BillingAddress": [{ "CustomerNumber": 383754, "BillingFirstName": "משה", "BillingLastName": "ישראלי", "BillingStreet": "רחוב הדקל", "BillingStreetNumber": "5", "BillingCity": "ירושלים" }],
+                "Products": [{ "SKU": "productX", "Name": "מוצר X", "Price": 50, "Quantity": 5 }],
+                "Comments": [{ "SuppliersComments": "דרוש תיאום מראש", "CustomerMessage": "נא לתאם מועד מסירה" }]
+            }
+        ];
+        return sampleOrders.find(order => order.Order[0].OrderNumber === parseInt(orderNumber));
+    };
+
+    loadOrdersBtn.addEventListener('click', async () => {
+        const orderNumber = orderNumberInput.value;
+        if (!orderNumber) {
+            showMessage('נא להזין מספר הזמנה.');
+            return;
+        }
+
+        try {
+            // In a real app, replace the dummy function with a real fetch call
+            const fetchedOrder = await fetchOrderByNumberFromAPI(orderNumber);
+
+            if (fetchedOrder) {
+                // Wrap the single order in an array to be compatible with existing functions.
+                allOrders = [fetchedOrder];
+                renderOrderList(allOrders);
+                displayOrderDetails(fetchedOrder);
+                showMessage('ההזמנה נטענה בהצלחה!');
+            } else {
+                allOrders = [];
+                orderListEl.innerHTML = '';
+                orderFormContainer.classList.add('hidden');
+                showMessage(`לא נמצאה הזמנה במספר ${orderNumber}.`);
+            }
+        } catch (error) {
+            console.error('Error fetching data from API:', error);
+            showMessage('שגיאה בטעינת הנתונים מה-API. ודא שהמספר תקין.');
+        }
+    });
+
+    const renderOrderList = (orders) => {
+        orderListEl.innerHTML = '';
+        if (orders.length === 0) {
+            orderListEl.innerHTML = '<p class="text-gray-500">אין הזמנות להצגה.</p>';
+            return;
+        }
+        const groupedOrders = orders.reduce((acc, order) => {
+            const supplierId = order.BillingAddress[0]?.CustomerNumber || 'ספק לא ידוע';
+            if (!acc[supplierId]) {
+                acc[supplierId] = [];
+            }
+            acc[supplierId].push(order);
+            return acc;
+        }, {});
+
+        for (const supplierId in groupedOrders) {
+            const groupHeader = document.createElement('h4');
+            groupHeader.className = 'text-lg font-semibold mt-4 mb-2';
+            groupHeader.textContent = `ספק: ${supplierId}`;
+            orderListEl.appendChild(groupHeader);
+
+            groupedOrders[supplierId].forEach(order => {
+                const orderItem = document.createElement('li');
+                orderItem.className = 'order-item rounded-md shadow-sm mb-2';
+                orderItem.dataset.guid = order.Order[0].GUID;
+                orderItem.innerHTML = `
+                    <p class="text-sm font-bold text-gray-800">הזמנה #${order.Order[0].OrderNumber}</p>
+                    <p class="text-xs text-gray-500">${order.BillingAddress[0].BillingFirstName} ${order.BillingAddress[0].BillingLastName}</p>
+                `;
+                orderItem.addEventListener('click', () => {
+                    document.querySelectorAll('.order-item').forEach(item => item.classList.remove('active'));
+                    orderItem.classList.add('active');
+                    displayOrderDetails(order);
+                });
+                orderListEl.appendChild(orderItem);
+            });
+        }
+    };
+
+    const displayOrderDetails = (order) => {
+        const guid = order.Order[0].GUID;
+        const billingAddress = order.BillingAddress[0];
+        const products = order.Products;
+        const comments = order.Comments[0];
+
+        // Load saved data for this order
+        const orderSavedData = savedData[guid] || {};
+
+        customerNameEl.textContent = billingAddress.BillingFirstName + ' ' + billingAddress.BillingLastName;
+        customerAddressEl.textContent = billingAddress.BillingStreet + ' ' + billingAddress.BillingStreetNumber + ', ' + billingAddress.BillingCity;
+
+        productsTableBody.innerHTML = ''; // Clear existing products
+        products.forEach(product => {
+            const savedCost = orderSavedData.costs && orderSavedData.costs[product.SKU] ? orderSavedData.costs[product.SKU] : '';
+            const row = document.createElement('tr');
+            row.className = 'border-b last:border-0';
+            row.innerHTML = `
+                <td class="py-3 px-4 text-sm text-gray-900 text-right font-medium">${product.Name}</td>
+                <td class="py-3 px-4 text-sm text-gray-900 text-center">${product.Quantity}</td>
+                <td class="py-3 px-4 text-sm text-gray-900 text-center">${product.Price}</td>
+                <td class="py-3 px-4 text-sm text-gray-900 text-center">
+                    <input type="number" class="form-input text-center w-24 mx-auto" placeholder="עלות" data-sku="${product.SKU}" value="${savedCost}">
+                </td>
+            `;
+            productsTableBody.appendChild(row);
+        });
+
+        supplierCommentsEl.textContent = comments.SuppliersComments || comments.CustomerMessage || 'אין הערות מהספק/לקוח';
+        myCommentsInput.value = orderSavedData.myComments || '';
+
+        // Add event listeners for saving data
+        productsTableBody.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', saveOrderData);
+        });
+        myCommentsInput.addEventListener('input', saveOrderData);
+
+        orderFormContainer.classList.remove('hidden');
+    };
+
+    const saveOrderData = () => {
+        const activeOrderEl = document.querySelector('.order-item.active');
+        if (!activeOrderEl) return;
+        
+        const guid = activeOrderEl.dataset.guid;
+        if (!savedData[guid]) {
+            savedData[guid] = { costs: {}, myComments: '' };
+        }
+
+        productsTableBody.querySelectorAll('input[type="number"]').forEach(input => {
+            savedData[guid].costs[input.dataset.sku] = input.value;
+        });
+
+        savedData[guid].myComments = myCommentsInput.value;
+        localStorage.setItem('savedOrderData', JSON.stringify(savedData));
+    };
+
+    printBtn.addEventListener('click', () => {
+        window.print();
+    });
+
+    clearBtn.addEventListener('click', () => {
+        localStorage.removeItem('savedOrderData');
+        savedData = {};
+        orderListEl.innerHTML = '';
+        orderFormContainer.classList.add('hidden');
+        showMessage('כל הנתונים המקומיים נוקו בהצלחה!');
+    });
+});
+</script>
+</body>
+</html>
