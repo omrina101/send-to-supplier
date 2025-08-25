@@ -15,7 +15,7 @@ exports.handler = async (event, context) => {
     
     // The actual API URL and key from your request
     const API_URL = 'https://restapi.e-shops.co.il/api/getorder';
-    const API_KEY = '65EB7DCB-55BF-4E12-83C2-02A03D7C55B5';
+    const API_KEY = '8DE6EE65-64D3-45F3-B49F-DD1312AA9CC4';
 
     // Construct the full URL with the order number
     const url = `${API_URL}?key=${API_KEY}&orderid=${orderNumber}`;
