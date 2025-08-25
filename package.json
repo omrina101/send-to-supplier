@@ -19,6 +19,7 @@
   "homepage": "https://github.com/omrina101/send-to-supplier#readme",
   "description": "",
   "dependencies": {
+    "@netlify/blobs": "^10.0.8",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "node-fetch": "^3.3.2"
