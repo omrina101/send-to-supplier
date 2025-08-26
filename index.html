@@ -294,7 +294,7 @@
                         <p id="orderNumber" class="text-gray-800 font-bold"></p>
                     </div>
                     <div>
-                        <p class="text-sm font-medium text-gray-600">תאריך יצירה:</p>
+                        <p class="text-sm font-medium text-gray-600">תאריך הזמנה:</p>
                         <p id="createdDate" class="text-gray-800"></p>
                     </div>
                 </div>
@@ -329,10 +329,10 @@
                         <thead>
                             <tr class="table-header">
                                 <th class="py-3 px-6 text-sm font-medium text-gray-800 text-right">פריט</th>
-                                <th class="py-3 px-6 text-sm font-medium text-gray-800 text-center">SKU</th>
+                                <th class="py-3 px-6 text-sm font-medium text-gray-800 text-center">מק"ט</th>
                                 <th class="py-3 px-6 text-sm font-medium text-gray-800 text-center">כמות</th>
                                 <th class="py-3 px-6 text-sm font-medium text-gray-800 text-center">מחיר לקוח (₪)</th>
-                                <th class="py-3 px-6 text-sm font-medium text-gray-800 text-center">מחיר עלות</th>
+                                <th class="py-3 px-6 text-sm font-medium text-gray-800 text-center">מחיר עלות לפני מע"מ</th>
                                 <th class="py-3 px-6 text-sm font-medium text-gray-800 text-center">פעולות</th>
                             </tr>
                         </thead>
@@ -350,7 +350,7 @@
                     הערות
                 </h3>
                 <div>
-                    <p class="text-sm font-medium text-gray-600">הערות מהאתר:</p>
+                    <p class="text-sm font-medium text-gray-600">הערות לקוח:</p>
                     <p id="supplierComments" class="text-gray-800 italic"></p>
                 </div>
                 <div class="mt-4">
@@ -370,6 +370,11 @@
                 <i class="fas fa-trash"></i>
                 נקה הכל
             </button>
+            <!-- New button to send to Rivhit -->
+            <button id="sendToRivhitBtn" class="btn btn-primary">
+                <i class="fas fa-file-export"></i>
+                שלח לריווחית
+            </button>
         </div>
     </div>
 </div>
@@ -378,6 +383,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const loadOrdersBtn = document.getElementById('loadOrdersBtn');
+    const sendToRivhitBtn = document.getElementById('sendToRivhitBtn');
     const orderNumberInput = document.getElementById('orderNumberInput');
     const orderListEl = document.getElementById('orderList');
     const orderFormContainer = document.getElementById('orderFormContainer');
@@ -403,8 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, duration);
     };
 
-    const fetchOrderByNumberFromAPI = async (orderNumber) => {
-        // Updated to call your local Node.js server
+    const fetchOrderFromLocalAPI = async (orderNumber) => {
         const API_URL = `http://localhost:3000/api/orders/${orderNumber}`;
         try {
             const response = await fetch(API_URL);
@@ -419,6 +424,29 @@ document.addEventListener('DOMContentLoaded', () => {
             throw error;
         }
     };
+    
+    // New function to send order to Rivhit API via our server
+    const sendOrderToRivhit = async (orderNumber) => {
+        const API_URL = 'http://localhost:3000/api/create-supplier-order';
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ orderNumber })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to send order to Rivhit.');
+            }
+            return data;
+        } catch (error) {
+            console.error('Error sending order to Rivhit:', error);
+            throw error;
+        }
+    };
 
     loadOrdersBtn.addEventListener('click', async () => {
         const orderNumber = orderNumberInput.value;
@@ -428,15 +456,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // In a real app, replace the dummy function with a real fetch call
-            const fetchedOrder = await fetchOrderByNumberFromAPI(orderNumber);
+            const fetchedOrder = await fetchOrderFromLocalAPI(orderNumber);
 
             if (fetchedOrder) {
-                // Wrap the single order in an array to be compatible with existing functions.
                 allOrders = [fetchedOrder];
                 renderOrderList(allOrders);
                 displayOrderDetails(fetchedOrder);
-                showMessage('ההזמנה נטענה בהצלחה!');
+                showMessage('ההזמנה נטענה בהצלחה! ✅');
             } else {
                 allOrders = [];
                 orderListEl.innerHTML = '';
@@ -445,7 +471,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Error fetching data from API:', error);
-            showMessage('שגיאה בטעינת הנתונים מה-API. ודא שהמספר תקין.');
+            showMessage('שגיאה בטעינת הנתונים מה-API. ודא שהמספר תקין. ❌');
+        }
+    });
+    
+    // Listen for the "Enter" key press on the input field
+    orderNumberInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Prevent the default form submission behavior
+            loadOrdersBtn.click(); // Programmatically click the load button
+        }
+    });
+
+    sendToRivhitBtn.addEventListener('click', async () => {
+        const orderNumber = orderNumberInput.value;
+        if (!orderNumber) {
+            showMessage('נא להזין מספר הזמנה כדי לשלוח לריווחית.');
+            return;
+        }
+
+        try {
+            showMessage('שולח הזמנה לריווחית... ⏳');
+            const result = await sendOrderToRivhit(orderNumber);
+            if (result.success) {
+                showMessage('ההזמנה נשלחה לריווחית בהצלחה! ✅');
+            }
+        } catch (error) {
+            showMessage(`שגיאה בשליחה לריווחית: ${error.message} ❌`);
         }
     });
 
@@ -572,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
         savedData = {};
         orderListEl.innerHTML = '';
         orderFormContainer.classList.add('hidden');
-        showMessage('כל הנתונים המקומיים נוקו בהצלחה!');
+        showMessage('כל הנתונים המקומיים נוקו בהצלחה! 🗑️');
     });
 });
 </script>
